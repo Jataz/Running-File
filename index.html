@@ -1,0 +1,860 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>MInistyr of Skills Audit and Development — Running File System</title>
+<style>
+  /* ==== Typography & Base ==== */
+  :root{
+    --bg:#0c1021; --panel:#131936; --muted:#9aa3cf; --text:#eef2ff; --border:#273054;
+    --accent:#8bb1ff; --accent2:#22d3ee; --ok:#22c55e; --warn:#f7b500; --bad:#ff6b6b;
+    --chip:#18214a; --chip2:#0f1a3d; --shadow:0 10px 30px rgba(5,10,30,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family:"Trebuchet MS", Tahoma, Arial, sans-serif;
+    font-size:14px;
+    background:radial-gradient(1000px 700px at 10% -10%,#15204a,transparent) ,
+               radial-gradient(900px 600px at 110% 10%,#0e1d45,transparent),
+               linear-gradient(180deg,#0b1020,#0e1430 60%,#0b1020);
+    color:var(--text);
+  }
+
+  /* ==== App Shell ==== */
+  .app{display:grid;grid-template-columns:260px 1fr;grid-template-rows:60px 1fr;grid-template-areas:"top top" "side main";height:100%}
+  header{grid-area:top;display:flex;align-items:center;gap:12px;padding:10px;border-bottom:1px solid var(--border);background:#0e1429;position:sticky;top:0;z-index:5}
+  header .logo{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.2px}
+  .badge{padding:2px 6px;border-radius:8px;font-size:12px;background:#0f1b3e;border:1px solid var(--border);color:#cfd7ff}
+  .pill{background:#0d1330;border:1px solid var(--border);border-radius:12px;height:38px;padding:0 10px;display:flex;align-items:center;gap:8px;color:var(--muted);box-shadow:var(--shadow)}
+  .pill input{all:unset;color:var(--text);width:260px}
+  .btn{height:36px;border-radius:10px;border:1px solid var(--border);background:#121735;color:var(--text);padding:0 12px;display:inline-flex;align-items:center;gap:8px;cursor:pointer;box-shadow:var(--shadow)}
+  .btn svg{width:16px;height:16px}
+  .btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));border:0;color:#0b1020;font-weight:800}
+  .btn.ghost{background:transparent;border-style:dashed;color:var(--muted)}
+  .btn.danger{background:rgba(255,107,107,.12);border-color:#ff9a9a;color:#ff9a9a}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+
+  .side{grid-area:side;border-right:1px solid var(--border);background:linear-gradient(180deg,#121935,#0f132a);padding:12px;overflow:auto}
+  .side h4{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.14em;margin:14px 8px 8px}
+  .nav{display:flex;flex-direction:column;gap:6px}
+  .nav button{all:unset;display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;cursor:pointer}
+  .nav button .ico{width:18px;height:18px;opacity:.9}
+  .nav button.active,.nav button:hover{background:rgba(124,156,255,.12);outline:1px solid rgba(124,156,255,.18)}
+  .main{grid-area:main;display:grid;grid-template-rows:auto auto 1fr;gap:10px;padding:10px;overflow:hidden}
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .panel{background:linear-gradient(180deg,#121a3a,#0f132a);border:1px solid var(--border);border-radius:14px;padding:10px;min-height:0;box-shadow:var(--shadow)}
+
+  /* ==== Table & Layout ==== */
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:10px;border-bottom:1px solid var(--border);font-size:14px}
+  thead th{position:sticky;top:0;background:#0e1530;z-index:1}
+  tr:hover{background:rgba(255,255,255,.04)}
+  .status{font-weight:700}
+  .st-new{color:#7dd3fc}.st-pending{color:#fbbf24}.st-review{color:#93c5fd}.st-approved{color:#34d399}.st-rejected{color:#fb7185}.st-closed{color:#a5b4fc}
+  .tags{display:flex;gap:6px;flex-wrap:wrap}
+  .tag{font-size:12px;background:linear-gradient(135deg,#b3c7ff,#22d3ee);color:#0b1020;border-radius:999px;padding:2px 8px}
+  .split{display:grid;grid-template-columns:1fr 380px;gap:10px;height:100%}
+  .list{overflow:auto}
+  .detail{display:grid;grid-template-rows:auto 1fr auto;gap:8px}
+  .detail .box{border:1px dashed var(--border);border-radius:12px;padding:8px;min-height:120px;background:var(--chip2)}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:6px}
+  .foot{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:12px}
+
+  /* ==== Board ==== */
+  .board{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .col{background:#0f1532;border:1px solid var(--border);border-radius:12px;padding:8px}
+  .card{background:#11193c;border:1px solid var(--border);border-radius:10px;padding:8px;margin-bottom:8px;cursor:grab}
+
+  /* ==== Modals ==== */
+  dialog{border:1px solid var(--border);background:#0f142d;border-radius:14px;color:var(--text);padding:0;max-width:800px;width:96%}
+  dialog::backdrop{background:rgba(2,6,23,.6)}
+  .modal-head{padding:12px 14px;border-bottom:1px solid var(--border);font-weight:800;display:flex;align-items:center;gap:8px}
+  .modal-body{padding:12px;display:grid;gap:10px}
+  .modal-foot{padding:12px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
+  .input{display:grid;gap:6px}
+  .input input,.input textarea,.input select{width:100%;background:#0b1024;border:1px solid var(--border);border-radius:10px;color:var(--text);padding:10px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{background:var(--chip);border:1px solid var(--border);padding:4px 8px;border-radius:999px}
+
+  /* ==== Toast ==== */
+  .notif{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#0f1530;border:1px solid var(--border);padding:10px 12px;border-radius:10px;box-shadow:var(--shadow)}
+
+  /* ==== Login Overlay ==== */
+  #login{position:fixed;inset:0;display:grid;place-items:center;background:linear-gradient(180deg,rgba(5,8,20,.8),rgba(5,8,20,.92));z-index:9999}
+  .login-card{width:min(560px,96vw);background:#0f1532;border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
+  .login-card .modal-head{font-size:18px}
+  .login-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+  /* ==== Mini Icons in text ==== */
+  .k{opacity:.7}
+
+  @media(max-width:1100px){.split{grid-template-columns:1fr}.detail{display:none}.board{grid-template-columns:1fr 1fr}}
+</style>
+
+<!-- ==== Inline SVG Icon Sprite (Heroicons-like minimal set) ==== -->
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="ico-home" viewBox="0 0 24 24"><path fill="currentColor" d="M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="ico-in" viewBox="0 0 24 24"><path fill="currentColor" d="M3 4h18v8h-8l2-2H5v10h14v-4h2v5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1"/></symbol>
+  <symbol id="ico-out" viewBox="0 0 24 24"><path fill="currentColor" d="M3 4h18v5h-2V6H5v12h14v-3h2v4a1 1 0 0 1-1 1H3V4z"/><path fill="currentColor" d="M13 7v3h-3v4h3v3l6-5z"/></symbol>
+  <symbol id="ico-files" viewBox="0 0 24 24"><path fill="currentColor" d="M7 2h7l5 5v13a2 2 0 0 1-2 2H7zM9 4v16h8V9h-5V4z"/></symbol>
+  <symbol id="ico-board" viewBox="0 0 24 24"><path fill="currentColor" d="M3 4h18v16H3zM5 6v12h14V6zM7 8h4v8H7zm6 0h4v5h-4z"/></symbol>
+  <symbol id="ico-report" viewBox="0 0 24 24"><path fill="currentColor" d="M4 4h16v16H4zM7 16h2V8H7zm4 0h2v-5h-2zm4 0h2v-9h-2z"/></symbol>
+  <symbol id="ico-audit" viewBox="0 0 24 24"><path fill="currentColor" d="M5 3h14v18H5zM7 5v14h10V5zm2 2h6v2H9zm0 4h6v2H9z"/></symbol>
+  <symbol id="ico-gear" viewBox="0 0 24 24"><path fill="currentColor" d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8m0-6 2 2 3-.5 1 2.5 2.5 1-.5 3 2 2-2 2 .5 3-2.5 1-1 2.5-3-.5-2 2-2-2-3 .5-1-2.5-2.5-1 .5-3-2-2 2-2-.5-3 2.5-1 1-2.5 3 .5z"/></symbol>
+  <symbol id="ico-plus" viewBox="0 0 24 24"><path fill="currentColor" d="M11 5h2v14h-2zM5 11h14v2H5z"/></symbol>
+  <symbol id="ico-search" viewBox="0 0 24 24"><path fill="currentColor" d="M10 3a7 7 0 1 1 0 14 7 7 0 0 1 0-14m8.6 12.2 3.2 3.2-1.4 1.4-3.2-3.2z"/></symbol>
+  <symbol id="ico-upload" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3 7 8h3v6h4V8h3zM5 18h14v2H5z"/></symbol>
+  <symbol id="ico-eye" viewBox="0 0 24 24"><path fill="currentColor" d="M12 5c5 0 9 4.5 10 7-1 2.5-5 7-10 7S3 14.5 2 12c1-2.5 5-7 10-7m0 3a4 4 0 1 0 .001 8.001A4 4 0 0 0 12 8z"/></symbol>
+  <symbol id="ico-dl" viewBox="0 0 24 24"><path fill="currentColor" d="M11 4h2v8l3-3 1.4 1.4L12 16l-5.4-5.6L8 9l3 3zM5 18h14v2H5z"/></symbol>
+  <symbol id="ico-edit" viewBox="0 0 24 24"><path fill="currentColor" d="M3 17.25 14.81 5.44l3.75 3.75L6.75 21H3zM18.37 3.88l1.75 1.75-1.59 1.59-1.75-1.75z"/></symbol>
+  <symbol id="ico-trash" viewBox="0 0 24 24"><path fill="currentColor" d="M5 7h14v2H5zm2 2h10l-1 11H8zM9 4h6l1 2H8z"/></symbol>
+  <symbol id="ico-user" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3a5 5 0 1 1 0 10 5 5 0 0 1 0-10m-8 16a8 8 0 0 1 16 0z"/></symbol>
+  <symbol id="ico-lock" viewBox="0 0 24 24"><path fill="currentColor" d="M7 10V8a5 5 0 1 1 10 0v2h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V8a3 3 0 1 0-6 0z"/></symbol>
+  <symbol id="ico-share" viewBox="0 0 24 24"><path fill="currentColor" d="M18 8a3 3 0 1 0-2.83-4H15a3 3 0 0 0 0 6 3 3 0 0 0 2.5-1.33L10 12l7.5 3.33A3 3 0 1 0 18 20a3 3 0 0 0-2.5-1.33L10 15l5.5-2.44A3 3 0 0 0 18 8z"/></symbol>
+  <symbol id="ico-comment" viewBox="0 0 24 24"><path fill="currentColor" d="M4 4h16v12H7l-3 3z"/></symbol>
+  <symbol id="ico-check" viewBox="0 0 24 24"><path fill="currentColor" d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></symbol>
+  <symbol id="ico-clock" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20m1 5h-2v6l5 3 1-1.7-4-2.3z"/></symbol>
+  <symbol id="ico-star" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2 9 9H2l6 4-2 7 6-4 6 4-2-7 6-4h-7z"/></symbol>
+</svg>
+</head>
+<body>
+
+<!-- =================== LOGIN OVERLAY =================== -->
+<section id="login">
+  <div class="login-card">
+    <div class="modal-head">
+      <svg class="k" width="22" height="22"><use href="#ico-lock"/></svg>
+      Sign in — MInistyr of Skills Audit and Development
+    </div>
+    <div class="modal-body login-grid">
+      <div class="input"><label>Username</label><input id="li-user" placeholder="e.g., clerkA"/></div>
+      <div class="input"><label>Password</label><input id="li-pass" type="password" placeholder="••••••"/></div>
+    </div>
+    <div class="modal-foot">
+      <span style="flex:1"></span>
+      <button class="btn" id="li-cancel">Close</button>
+      <button class="btn primary" id="li-login"><svg><use href="#ico-check"/></svg>Sign in</button>
+    </div>
+  </div>
+</section>
+
+<!-- =================== APP =================== -->
+<div class="app" style="visibility:hidden" id="app">
+  <header>
+    <div class="logo" title="MInistyr of Skills Audit and Development">
+      <span style="font-size:22px">📁</span>
+      Running File System — MInistyr of Skills Audit and Development
+      <span class="badge">Official</span>
+    </div>
+    <div class="pill" style="margin-left:12px;flex:1"><svg class="k" width="16" height="16"><use href="#ico-search"/></svg> <input id="q" placeholder="Search ref / subject / tag (Ctrl+/)"/></div>
+    <button class="btn" id="btn-adv"><svg><use href="#ico-search"/></svg>Advanced</button>
+    <div class="pill" style="width:auto;padding-right:12px">
+      <svg class="k" width="16" height="16"><use href="#ico-user"/></svg>
+      <span id="who"></span>
+    </div>
+    <button class="btn primary" id="btn-new"><svg><use href="#ico-plus"/></svg>New File</button>
+    <button class="btn" id="btn-upload" title="Upload attachment to selected file"><svg><use href="#ico-upload"/></svg>Upload</button>
+    <button class="btn" id="btn-logout">Logout</button>
+  </header>
+
+  <aside class="side">
+    <h4>Navigation</h4>
+    <div class="nav" id="nav">
+      <button data-view="dashboard" class="active"><svg class="ico"><use href="#ico-home"/></svg>🏠 Dashboard</button>
+      <button data-view="inbox"><svg class="ico"><use href="#ico-in"/></svg>📥 Inbox</button>
+      <button data-view="outbox"><svg class="ico"><use href="#ico-out"/></svg>📤 Outgoing</button>
+      <button data-view="files"><svg class="ico"><use href="#ico-files"/></svg>🗂️ All Files</button>
+      <button data-view="board"><svg class="ico"><use href="#ico-board"/></svg>🧭 Workflow Board</button>
+      <button data-view="reports"><svg class="ico"><use href="#ico-report"/></svg>📈 Reports</button>
+      <button data-view="audit"><svg class="ico"><use href="#ico-audit"/></svg>🧾 Audit Log</button>
+      <button data-view="settings"><svg class="ico"><use href="#ico-gear"/></svg>⚙️ Settings</button>
+    </div>
+    <h4>Quick Filters</h4>
+    <div class="nav" id="quick">
+      <button data-filter="due-today"><svg class="ico"><use href="#ico-clock"/></svg>⏰ Due Today</button>
+      <button data-filter="overdue">❗ Overdue</button>
+      <button data-filter="starred"><svg class="ico"><use href="#ico-star"/></svg>⭐ Starred</button>
+      <button data-filter="mine">👤 Assigned to me</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="toolbar panel" id="toolbar">
+      <div class="tags">
+        <span class="tag">Ministry DMS</span>
+        <span class="tag">Version 1.0</span>
+        <span class="tag">Secure</span>
+      </div>
+      <div style="margin-left:auto" class="tags">
+        <span class="tag" id="stat-count">0 files</span>
+        <span class="tag" id="stat-overdue">0 overdue</span>
+        <span class="tag" id="stat-due">0 near due</span>
+      </div>
+    </div>
+
+    <section class="panel split" id="view">
+      <div class="list">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:110px">Ref</th>
+              <th>Subject</th>
+              <th style="width:180px">Departments</th>
+              <th style="width:120px">Owner</th>
+              <th style="width:120px">Status</th>
+              <th style="width:160px">Due</th>
+              <th style="width:290px">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <aside class="detail">
+        <div class="modal-head">Details</div>
+        <div class="box" id="detail-box">Select a file…</div>
+        <div class="foot">
+          <div id="hint">Right-click row for quick actions • Enter to open • Del to archive</div>
+          <div id="tags" class="tags"></div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="panel" id="board-view" style="display:none">
+      <div class="board" id="board"></div>
+    </section>
+
+    <section class="panel" id="reports-view" style="display:none">
+      <div id="charts"></div>
+    </section>
+
+    <section class="panel" id="audit-view" style="display:none">
+      <table>
+        <thead><tr><th style="width:180px">When</th><th>User</th><th>Action</th><th>File</th></tr></thead>
+        <tbody id="audit-rows"></tbody>
+      </table>
+    </section>
+
+    <section class="panel" id="settings-view" style="display:none">
+      <div class="modal-head"><svg class="k" width="18" height="18"><use href="#ico-gear"/></svg> Settings</div>
+      <div class="modal-body">
+        <label><input type="checkbox" id="opt-compact"> Compact table rows</label>
+        <label><input type="checkbox" id="opt-sla"> Show SLA badges</label>
+        <div class="input"><label>Storage quota (MB)</label><input id="opt-quota" type="number" value="500"/></div>
+        <hr style="border-color:var(--border)">
+        <div class="modal-head" style="border:0;padding:0;margin-top:-8px">User Accounts</div>
+        <div class="input"><label>Username</label><input id="ua-user" placeholder="e.g., officerB"/></div>
+        <div class="input"><label>Password</label><input id="ua-pass" placeholder="set a password"/></div>
+        <div class="input"><label>Class</label>
+          <select id="ua-class">
+            <option value="A">A — Clerk</option><option value="B">B — Officer</option><option value="C">C — Director</option><option value="D">D — Permanent Secretary</option><option value="E">E — Admin</option>
+          </select>
+        </div>
+        <div class="input"><label>Department</label>
+          <select id="ua-dept" class="dept-select"></select>
+        </div>
+        <div>
+          <button class="btn" id="ua-add"><svg><use href="#ico-plus"/></svg>Add User</button>
+        </div>
+        <div id="ua-list" class="chips"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- =================== MODALS =================== -->
+<dialog id="dlg-new">
+  <div class="modal-head"><svg class="k" width="18" height="18"><use href="#ico-files"/></svg> New File</div>
+  <div class="modal-body">
+    <div class="input"><label>Subject</label><input id="nf-subject" placeholder="e.g., Procurement Request"/></div>
+    <div class="input"><label>Departments (hold Ctrl/Cmd for multiple)</label>
+      <select id="nf-depts" multiple size="9" class="dept-multi"></select>
+    </div>
+    <div class="input"><label>Owner</label><input id="nf-owner" placeholder="e.g., M. Dube"/></div>
+    <div class="input"><label>Due Date</label><input id="nf-due" type="date"/></div>
+    <div class="input"><label>Tags (comma separated)</label><input id="nf-tags" placeholder="budget, urgent"/></div>
+    <div class="input"><label>Description</label><textarea id="nf-desc" rows="3" placeholder="Short description"></textarea></div>
+  </div>
+  <div class="modal-foot">
+    <button class="btn" data-close>Cancel</button>
+    <button class="btn primary" id="nf-save"><svg><use href="#ico-check"/></svg>Create</button>
+  </div>
+</dialog>
+
+<dialog id="dlg-forward">
+  <div class="modal-head"><svg class="k" width="18" height="18"><use href="#ico-share"/></svg> Forward File</div>
+  <div class="modal-body">
+    <div class="input"><label>To (user/role)</label><input id="fw-to" placeholder="e.g., Director ICT"/></div>
+    <div class="input"><label>Note</label><textarea id="fw-note" rows="3" placeholder="Provide context"></textarea></div>
+  </div>
+  <div class="modal-foot"><button class="btn" data-close>Cancel</button><button class="btn primary" id="fw-send">Forward</button></div>
+</dialog>
+
+<dialog id="dlg-approve">
+  <div class="modal-head"><svg class="k" width="18" height="18"><use href="#ico-check"/></svg> Decision</div>
+  <div class="modal-body">
+    <div class="input"><label>Decision</label>
+      <select id="ap-decision"><option value="approved">Approve</option><option value="rejected">Reject</option><option value="review">Request Changes</option></select></div>
+    <div class="input"><label>Comment</label><textarea id="ap-note" rows="3"></textarea></div>
+  </div>
+  <div class="modal-foot"><button class="btn" data-close>Cancel</button><button class="btn primary" id="ap-save">Save</button></div>
+</dialog>
+
+<dialog id="dlg-comment">
+  <div class="modal-head"><svg class="k" width="18" height="18"><use href="#ico-comment"/></svg> Add Comment</div>
+  <div class="modal-body">
+    <div class="input"><label>Comment</label><textarea id="cm-text" rows="3" placeholder="Type a note"></textarea></div>
+  </div>
+  <div class="modal-foot"><button class="btn" data-close>Cancel</button><button class="btn primary" id="cm-save">Add</button></div>
+</dialog>
+
+<dialog id="dlg-attach">
+  <div class="modal-head"><svg class="k" width="18" height="18"><use href="#ico-upload"/></svg> Attach Document</div>
+  <div class="modal-body">
+    <div class="input"><label>Attachment Name</label><input id="at-name" placeholder="e.g., quotation.pdf"/></div>
+    <div class="input"><label>Text Content (optional – for preview)</label><textarea id="at-content" rows="4" placeholder="Paste or type text to enable preview"></textarea></div>
+    <div class="chips"><span class="chip">If content is empty, viewer shows metadata only.</span></div>
+  </div>
+  <div class="modal-foot"><button class="btn" data-close>Cancel</button><button class="btn primary" id="at-save">Attach</button></div>
+</dialog>
+
+<dialog id="dlg-viewer">
+  <div class="modal-head"><svg class="k" width="18" height="18"><use href="#ico-eye"/></svg> Attachment Viewer</div>
+  <div class="modal-body">
+    <div class="input"><label>File</label><input id="vw-name" disabled/></div>
+    <div class="input"><label>Preview</label><textarea id="vw-content" rows="12" readonly placeholder="No preview available"></textarea></div>
+  </div>
+  <div class="modal-foot">
+    <button class="btn" data-close>Close</button>
+    <button class="btn" id="vw-download"><svg><use href="#ico-dl"/></svg>Download</button>
+  </div>
+</dialog>
+
+<div class="notif" id="toast" style="display:none"></div>
+
+<script>
+/* =================== Utilities & Storage =================== */
+const $=(s,c=document)=>c.querySelector(s), $$=(s,c=document)=>Array.from(c.querySelectorAll(s));
+const today=()=>new Date().toISOString().slice(0,10);
+const fmt=(d)=>new Date(d).toLocaleString();
+const daysLeft=(d)=> Math.floor((+new Date(d) - Date.now())/86400000);
+const toast=(t)=>{const el=$('#toast');el.textContent=t;el.style.display='block';setTimeout(()=>el.style.display='none',1800)}
+const storeKey='rfs_prototype_v2';
+
+/* Standardized Ministry departments (used everywhere) */
+const DEPARTMENTS = [
+  "Communications",
+  "Finance and Admin",
+  "HR",
+  "ICT",
+  "Internal Audit",
+  "PMU",
+  "Skills Audit",
+  "SPPME",
+  "Research"
+];
+
+/* Populate any select with class="dept-select" or "dept-multi" */
+function hydrateDeptSelects(){
+  $$(".dept-select").forEach(sel=>{
+    sel.innerHTML = DEPARTMENTS.map(d=>`<option>${d}</option>`).join("");
+  });
+  $$(".dept-multi").forEach(sel=>{
+    sel.innerHTML = DEPARTMENTS.map(d=>`<option>${d}</option>`).join("");
+  });
+}
+
+const demoUsers=[
+  {username:'admin',password:'admin',klass:'E',dept:'ICT'},
+  {username:'clerkA',password:'pass',klass:'A',dept:'HR'},
+  {username:'officerB',password:'pass',klass:'B',dept:'Finance and Admin'},
+  {username:'directorC',password:'pass',klass:'C',dept:'SPPME'},
+  {username:'psD',password:'pass',klass:'D',dept:'ICT'},
+];
+
+const seed={
+  prefs:{compact:false,sla:true,quota:500},
+  users: demoUsers,
+  currentUser:null,
+  files:[
+    {ref:'F001',subject:'Procurement Request (Laptops)',depts:['Finance and Admin'],owner:'M. Dube',status:'Pending',due:'2025-11-12',star:true,desc:'Purchase of 10 laptops for Training Centre.',tags:['budget','urgent'],history:[{at:Date.now()-86400000,by:'clerkA(A/HR)',act:'Created'}],comments:[],attachments:[{name:'specs.docx',size:45,content:''}],route:[{to:'Procurement Officer',note:'Please review',at:Date.now()-43200000}]},
+    {ref:'F002',subject:'Training Budget 2026',depts:['HR'],owner:'T. Ncube',status:'In Review',due:'2025-11-20',star:false,desc:'Draft budget for staff development.',tags:['training'],history:[{at:Date.now()-172800000,by:'officerB(B/Finance and Admin)',act:'Submitted'}],comments:[{at:Date.now()-86400000,by:'directorC(C/SPPME)',text:'Clarify totals.'}],attachments:[],route:[]},
+    {ref:'F003',subject:'Server Upgrade',depts:['ICT'],owner:'K. Moyo',status:'Approved',due:'2025-11-05',star:false,desc:'Upgrade virtualization cluster.',tags:['ict','capex'],history:[{at:Date.now()-604800000,by:'directorC(C/SPPME)',act:'Approved'}],comments:[],attachments:[{name:'quote.pdf',size:210,content:''}],route:[]},
+    {ref:'F004',subject:'Quarterly M&E Report',depts:['SPPME'],owner:'L. Chirwa',status:'New',due:'2025-11-10',star:true,desc:'Q3 performance metrics summary.',tags:['report','m&e'],history:[{at:Date.now()-3600000,by:'clerkA(A/HR)',act:'Registered'}],comments:[],attachments:[],route:[]},
+    {ref:'F005',subject:'Risk Assessment',depts:['Internal Audit'],owner:'P. Banda',status:'Pending',due:'2025-11-25',star:false,desc:'Dept-wide risk review.',tags:['audit'],history:[],comments:[],attachments:[],route:[]},
+    {ref:'F006',subject:'Skills Mapping — Provincial Pilot',depts:['Skills Audit','Research'],owner:'S. Mlambo',status:'New',due:'2025-11-18',star:false,desc:'Pilot skills mapping exercise.',tags:['skills','pilot'],history:[{at:Date.now()-7200000,by:'admin(E/ICT)',act:'Registered'}],comments:[],attachments:[],route:[]},
+  ],
+  audit:[]
+};
+
+function load(){ try{ return JSON.parse(localStorage.getItem(storeKey))||seed }catch(e){ return seed } }
+let db=load();
+function save(){ localStorage.setItem(storeKey, JSON.stringify(db)) }
+
+/* =================== Permissions =================== */
+function perms(klass){
+  switch(klass){
+    case 'A': return {upload:false,download:true,edit:false,del:false,seeAll:false};
+    case 'B': return {upload:false,download:true,edit:false,del:false,seeAll:false};
+    case 'C': return {upload:true,download:true,edit:true,del:true,seeAll:true};
+    case 'D': return {upload:true,download:true,edit:true,del:true,seeAll:true};
+    case 'E': return {upload:true,download:true,edit:true,del:true,seeAll:true};
+    default:  return {upload:false,download:false,edit:false,del:false,seeAll:false};
+  }
+}
+
+/* =================== State =================== */
+const state={view:'dashboard', sel:null, filter:null, adv:{}, q:''}
+
+/* =================== UI Helpers =================== */
+function slaBadge(d){
+  if(!db.prefs.sla||!d) return '';
+  const n=daysLeft(d); let txt=n+'d'; let col=''; if(n<0){txt='Overdue '+(-n)+'d'; col='var(--bad)'} else if(n<=2){col='var(--warn)'} else col='var(--ok)';
+  return `<span class="badge" style="background:rgba(255,255,255,.06);border:1px solid var(--border);color:${col}">${txt}</span>`
+}
+function cls(s){ return {'New':'st-new','Pending':'st-pending','In Review':'st-review','Approved':'st-approved','Rejected':'st-rejected','Closed':'st-closed'}[s]||'' }
+
+/* =================== Filters & Rendering =================== */
+function visibleFiles(){
+  const cu=db.currentUser;
+  if(!cu) return [];
+  const p=perms(cu.klass);
+  let items=[...db.files];
+
+  // Visibility by department for A & B (own only)
+  if(!p.seeAll){
+    items=items.filter(f=> (f.depts||[]).includes(cu.dept));
+  }
+
+  // text search
+  const q=state.q.toLowerCase();
+  if(q){ items=items.filter(f=> (f.ref+f.subject+f.owner+(f.tags||[]).join(',')).toLowerCase().includes(q)) }
+
+  // advanced
+  if(state.adv.status) items=items.filter(f=>f.status===state.adv.status)
+  if(state.adv.dept)   items=items.filter(f=> (f.depts||[]).includes(state.adv.dept))
+  if(state.adv.due)    items=items.filter(f=> f.due && f.due<=state.adv.due)
+  if(state.adv.tag){ const t=state.adv.tag.toLowerCase(); items=items.filter(f=> (f.tags||[]).some(x=>x.toLowerCase()===t)) }
+
+  // quick filters
+  if(state.filter==='due-today'){ const t=today(); items=items.filter(f=>f.due===t) }
+  if(state.filter==='overdue'){ items=items.filter(f=>daysLeft(f.due)<0) }
+  if(state.filter==='starred'){ items=items.filter(f=>f.star) }
+  if(state.filter==='mine'){ items=items.filter(f=> (f.owner||'').toLowerCase().includes(cu.username.toLowerCase())) }
+
+  items.sort((a,b)=> a.status.localeCompare(b.status)|| (a.due||'').localeCompare(b.due||''));
+  return items;
+}
+
+function renderRows(){
+  const body=$('#rows'); body.innerHTML='';
+  const items=visibleFiles();
+  $('#stat-count').textContent=items.length+" files";
+  $('#stat-overdue').textContent= db.files.filter(f=>daysLeft(f.due)<0).length+" overdue";
+  $('#stat-due').textContent= db.files.filter(f=>daysLeft(f.due)>=0 && daysLeft(f.due)<=2).length+" near due";
+
+  const cu=db.currentUser; const p=perms(cu.klass);
+
+  for(const f of items){
+    const tr=document.createElement('tr'); tr.tabIndex=0; tr.dataset.ref=f.ref;
+    const depts=(f.depts||[]).join(', ');
+    tr.innerHTML=`
+      <td>${f.ref} ${f.star?'⭐':''}</td>
+      <td>${f.subject}</td>
+      <td>${depts||'—'}</td>
+      <td>${f.owner||'—'}</td>
+      <td class="status ${cls(f.status)}">${f.status}</td>
+      <td>${f.due||'—'} ${f.due? slaBadge(f.due):''}</td>
+      <td>
+        <button class="btn" data-act="open"><svg><use href="#ico-eye"/></svg>Open</button>
+        <button class="btn" data-act="forward"><svg><use href="#ico-share"/></svg>Forward</button>
+        <button class="btn" data-act="decision"><svg><use href="#ico-check"/></svg>Decide</button>
+        <button class="btn" data-act="comment"><svg><use href="#ico-comment"/></svg>Comment</button>
+        <button class="btn" data-act="edit" ${!p.edit?'disabled':''}><svg><use href="#ico-edit"/></svg>Edit</button>
+      </td>`;
+    tr.addEventListener('click',()=> select(f.ref));
+    tr.addEventListener('keydown',e=>{ if(e.key==='Enter') select(f.ref) });
+    tr.addEventListener('contextmenu',e=>{ e.preventDefault(); select(f.ref); quickMenu(e.clientX,e.clientY,f.ref) })
+    body.appendChild(tr);
+  }
+}
+
+function renderDetail(){
+  const box=$('#detail-box'); const tags=$('#tags'); tags.innerHTML='';
+  const f=db.files.find(x=>x.ref===state.sel); if(!f){ box.textContent='Select a file…'; return }
+  const hist=(f.history||[]).slice().reverse().map(h=>`<div>• ${fmt(h.at)} — <b>${h.by}</b>: ${h.act}</div>`).join('')||'No history';
+  const comm=(f.comments||[]).slice().reverse().map(c=>`<div>💬 <b>${c.by}</b> — ${fmt(c.at)}<div style="opacity:.8">${c.text}</div></div>`).join('')||'No comments yet';
+  const atts=(f.attachments||[]).map((a,i)=>`
+    <div>
+      📎 ${a.name} <span class="badge" style="border:1px solid var(--border)">${(a.size||String((a.content||'').length)).toString()} KB</span>
+      <button class="btn" onclick="viewAttachment('${f.ref}',${i})"><svg><use href="#ico-eye"/></svg>View</button>
+      <button class="btn" onclick="downloadAttachment('${f.ref}',${i})"><svg><use href="#ico-dl"/></svg>Download</button>
+    </div>`).join('')||'No attachments';
+  const route=(f.route||[]).slice().reverse().map(r=>`<div>➡️ ${r.to} — ${fmt(r.at)}<div style="opacity:.8">${r.note||''}</div></div>`).join('')||'Not routed';
+
+  box.innerHTML=`
+  <div class="kv">
+    <div>Ref</div><div>${f.ref}</div>
+    <div>Subject</div><div>${f.subject}</div>
+    <div>Departments</div><div>${(f.depts||[]).join(', ')||'—'}</div>
+    <div>Owner</div><div>${f.owner||'—'}</div>
+    <div>Status</div><div class="${cls(f.status)}">${f.status}</div>
+    <div>Due</div><div>${f.due||'—'} ${f.due? slaBadge(f.due):''}</div>
+    <div>Description</div><div>${f.desc||'—'}</div>
+    <div>Attachments</div><div>${atts}</div>
+    <div>Routing</div><div>${route}</div>
+    <div>History</div><div>${hist}</div>
+    <div>Comments</div><div class="box">${comm}</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+    <button class="btn" onclick="openForward()"><svg><use href="#ico-share"/></svg>Forward</button>
+    <button class="btn" onclick="openDecision()"><svg><use href="#ico-check"/></svg>Decide</button>
+    <button class="btn" onclick="openAttach()"><svg><use href="#ico-upload"/></svg>Attach</button>
+    <button class="btn" onclick="openComment()"><svg><use href="#ico-comment"/></svg>Comment</button>
+    <button class="btn" onclick="toggleStar()">${f.star?'Unstar':'Star'}</button>
+    <button class="btn" onclick="openEdit()"><svg><use href="#ico-edit"/></svg>Edit</button>
+    <button class="btn danger" onclick="removeFile()"><svg><use href="#ico-trash"/></svg>Delete</button>
+  </div>`;
+
+  (f.tags||[]).forEach(t=>{ const b=document.createElement('span'); b.className='tag'; b.textContent=t; tags.appendChild(b) })
+}
+
+function renderBoard(){
+  const cols=[['New','New'],['Pending','Pending'],['In Review','In Review'],['Approved','Approved']];
+  const el=$('#board'); el.innerHTML='';
+  const items=visibleFiles();
+  for(const [code,title] of cols){
+    const c=document.createElement('div'); c.className='col'; c.dataset.state=code;
+    c.innerHTML=`<div style="font-weight:800;margin-bottom:6px">${title}</div>`;
+    for(const f of items.filter(x=>x.status===code)){
+      const card=document.createElement('div'); card.className='card'; card.draggable=true; card.dataset.ref=f.ref;
+      card.innerHTML=`<div style="font-weight:700">${f.ref}</div><div>${f.subject}</div><div style="opacity:.8">${(f.depts||[]).join(', ')} • Due ${f.due||'—'}</div>`;
+      card.addEventListener('dragstart',e=> e.dataTransfer.setData('text/ref', f.ref));
+      c.appendChild(card)
+    }
+    c.addEventListener('dragover',e=>e.preventDefault());
+    c.addEventListener('drop',e=>{
+      e.preventDefault();
+      const r=e.dataTransfer.getData('text/ref');
+      const it=db.files.find(x=>x.ref===r); if(!it) return;
+      const can=perms(db.currentUser.klass).edit;
+      if(!can) return toast('Permission denied');
+      it.status=code; note(it,who(),'Moved on board'); log('Move',it); save(); renderAll()
+    });
+    el.appendChild(c)
+  }
+}
+
+function renderAudit(){
+  const tb=$('#audit-rows'); tb.innerHTML='';
+  for(const a of (db.audit||[]).slice().reverse()){
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${fmt(a.at)}</td><td>${a.by}</td><td>${a.act}</td><td>${a.ref||''}</td>`;
+    tb.appendChild(tr)
+  }
+}
+
+function renderReports(){
+  const c=$('#charts');
+  const items=visibleFiles();
+  const total=items.length; const od=items.filter(f=>daysLeft(f.due)<0).length; const near=items.filter(f=>daysLeft(f.due)>=0 && daysLeft(f.due)<=2).length;
+  const statuses=[...new Set(items.map(f=>f.status))];
+  const segments=statuses.map((s)=>{ const v=items.filter(f=>f.status===s).length; const w=v/Math.max(total,1)*300; return `<div style="display:flex;align-items:center;gap:8px"><div style="width:120px">${s}</div><div style="height:10px;width:${w}px;background:rgba(124,156,255,.35)"></div><div>${v}</div></div>` }).join('');
+  c.innerHTML=`
+    <div class="modal-head">Quick Stats</div>
+    <div class="modal-body">
+      <div>Total files: <b>${total}</b></div>
+      <div>Overdue: <b>${od}</b></div>
+      <div>Due ≤2d: <b>${near}</b></div>
+      <hr style="border-color:var(--border)">
+      ${segments}
+    </div>`;
+}
+
+/* =================== Actions & Helpers =================== */
+function who(){ const u=db.currentUser; return `${u.username}(${u.klass}/${u.dept})` }
+function select(ref){ state.sel=ref; renderDetail() }
+function note(file,by,act){ file.history=file.history||[]; file.history.push({at:Date.now(),by,act}) }
+function log(act,file){ db.audit.push({at:Date.now(),by:who(),act,ref:file?.ref}); save(); renderAudit() }
+
+/* --- Attachment Viewer / Download --- */
+function viewAttachment(ref,idx){
+  const f=db.files.find(x=>x.ref===ref); if(!f) return;
+  const a=(f.attachments||[])[idx]; if(!a) return;
+  $('#vw-name').value=a.name;
+  $('#vw-content').value=(a.content||'');
+  $('#dlg-viewer').showModal();
+  $('#vw-download').onclick=()=>downloadAttachment(ref,idx);
+}
+function downloadAttachment(ref,idx){
+  const can=perms(db.currentUser.klass).download;
+  if(!can) return toast('Permission denied');
+  const f=db.files.find(x=>x.ref===ref); if(!f) return;
+  const a=(f.attachments||[])[idx]; if(!a) return;
+  const blob=new Blob([(a.content||`Attachment: ${a.name}\nGenerated ${new Date().toISOString()}`)],{type:'text/plain'});
+  const url=URL.createObjectURL(blob); const aEl=document.createElement('a'); aEl.href=url; aEl.download=a.name||'attachment.txt'; aEl.click(); URL.revokeObjectURL(url);
+  log('Download attachment',f);
+}
+
+/* --- Edit / Delete --- */
+function openEdit(){
+  const can=perms(db.currentUser.klass).edit; if(!can) return toast('Permission denied');
+  const f=db.files.find(x=>x.ref===state.sel); if(!f) return;
+  $('#ed-subject').value=f.subject||'';
+  $('#ed-owner').value=f.owner||'';
+  $('#ed-status').value=f.status||'New';
+  $('#ed-due').value=f.due||'';
+  $('#ed-desc').value=f.desc||'';
+  $('#ed-tags').value=(f.tags||[]).join(', ');
+  const sel=$('#ed-depts'); Array.from(sel.options).forEach(o=> o.selected=(f.depts||[]).includes(o.value));
+  $('#dlg-edit').showModal();
+
+  $('#ed-save').onclick=()=>{
+    f.subject=$('#ed-subject').value||f.subject;
+    f.owner=$('#ed-owner').value||f.owner;
+    f.status=$('#ed-status').value;
+    f.due=$('#ed-due').value;
+    f.desc=$('#ed-desc').value;
+    f.tags=($('#ed-tags').value||'').split(',').map(s=>s.trim()).filter(Boolean);
+    f.depts=Array.from($('#ed-depts').selectedOptions).map(o=>o.value);
+    note(f,who(),'Edited');
+    log('Edit',f); save(); closeModals(); renderAll(); select(f.ref);
+  };
+
+  $('#ed-delete').onclick=removeFile;
+}
+
+function removeFile(){
+  const can=perms(db.currentUser.klass).del; if(!can) return toast('Permission denied');
+  const idx=db.files.findIndex(x=>x.ref===state.sel); if(idx<0) return;
+  const f=db.files[idx];
+  if(!confirm(`Delete ${f.ref} — ${f.subject}? This cannot be undone.`)) return;
+  db.files.splice(idx,1); log('Delete',f); save(); state.sel=null; renderAll(); toast('Deleted');
+}
+
+/* --- Attach / Upload --- */
+function openAttach(){
+  const can=perms(db.currentUser.klass).upload; if(!can) return toast('Permission denied');
+  if(!state.sel) return toast('Select a file');
+  $('#at-name').value='document.txt';
+  $('#at-content').value='';
+  $('#dlg-attach').showModal();
+}
+$('#btn-upload').onclick=()=> openAttach();
+
+$('#at-save').onclick=()=>{
+  const can=perms(db.currentUser.klass).upload; if(!can) return toast('Permission denied');
+  const f=db.files.find(x=>x.ref===state.sel); if(!f) return;
+  const name=$('#at-name').value||'attachment.txt';
+  const content=$('#at-content').value||'';
+  const size = Math.max(1, Math.ceil((content.length||100)/1)); // fake KB
+  f.attachments=f.attachments||[];
+  f.attachments.push({name,content,size});
+  note(f,who(),'Attachment added');
+  log('Attach',f); save(); closeModals(); renderDetail(); toast('Attached');
+};
+
+/* --- Comments / Forward / Decision --- */
+function openForward(){ if(!state.sel) return toast('Select a file'); $('#fw-to').value=''; $('#fw-note').value=''; $('#dlg-forward').showModal() }
+function openDecision(){ if(!state.sel) return toast('Select a file'); $('#ap-note').value=''; $('#ap-decision').value='approved'; $('#dlg-approve').showModal() }
+function openComment(){ if(!state.sel) return toast('Select a file'); $('#cm-text').value=''; $('#dlg-comment').showModal() }
+
+$('#fw-send').onclick=()=>{ const f=db.files.find(x=>x.ref===state.sel); if(!f) return; f.route=f.route||[]; f.route.push({to:$('#fw-to').value||'Unspecified',note:$('#fw-note').value,at:Date.now()}); note(f,who(),'Forwarded'); log('Forward',f); save(); closeModals(); renderDetail() }
+$('#ap-save').onclick=()=>{ const f=db.files.find(x=>x.ref===state.sel); if(!f) return; const d=$('#ap-decision').value; if(d==='approved') f.status='Approved'; else if(d==='rejected') f.status='Rejected'; else f.status='In Review'; note(f,who(),'Decision: '+d); log('Decision '+d,f); save(); closeModals(); renderAll() }
+$('#cm-save').onclick=()=>{ const f=db.files.find(x=>x.ref===state.sel); if(!f) return; f.comments=f.comments||[]; f.comments.push({at:Date.now(),by:who(),text:$('#cm-text').value}); note(f,who(),'Comment added'); log('Comment',f); save(); closeModals(); renderDetail() }
+
+/* --- Star / Archive (set Closed) --- */
+function toggleStar(){ const f=db.files.find(x=>x.ref===state.sel); if(!f) return; f.star=!f.star; log(f.star?'Star':'Unstar',f); save(); renderRows(); renderDetail() }
+
+/* --- Quick Context Menu --- */
+function quickMenu(x,y,ref){
+  const m=document.createElement('div'); m.style.position='fixed'; m.style.left=x+'px'; m.style.top=y+'px'; m.style.zIndex=9; m.style.background='#0f1530'; m.style.border='1px solid var(--border)'; m.style.borderRadius='10px'; m.style.boxShadow='var(--shadow)';
+  m.innerHTML=`
+    <div style="padding:8px 12px;cursor:pointer">Open</div>
+    <div style="padding:8px 12px;cursor:pointer">Forward</div>
+    <div style="padding:8px 12px;cursor:pointer">Decide</div>
+    <div style="padding:8px 12px;cursor:pointer">Comment</div>
+    <div style="padding:8px 12px;cursor:pointer">Attach</div>
+    <div style="padding:8px 12px;cursor:pointer">Edit</div>
+  `;
+  document.body.appendChild(m);
+  const clean=()=>{ m.remove(); document.removeEventListener('click',clean) };
+  const go=(i,fn)=> m.children[i].onclick=()=>{ select(ref); fn(); clean() }
+  go(0,()=>{});
+  go(1,openForward);
+  go(2,openDecision);
+  go(3,openComment);
+  go(4,openAttach);
+  go(5,openEdit);
+  setTimeout(()=>document.addEventListener('click',clean),0)
+}
+
+/* --- New File --- */
+$('#btn-new').onclick=()=>{
+  if(!perms(db.currentUser.klass).upload && !perms(db.currentUser.klass).edit){
+    return toast('Permission denied');
+  }
+  $('#nf-subject').value='';
+  $('#nf-owner').value=db.currentUser.username;
+  $('#nf-due').value=today();
+  $('#nf-tags').value='';
+  $('#nf-desc').value='';
+  Array.from($('#nf-depts').options).forEach(o=>o.selected=false);
+  $('#dlg-new').showModal()
+}
+$('#nf-save').onclick=()=>{
+  const p=perms(db.currentUser.klass);
+  if(!p.upload && !p.edit) return toast('Permission denied');
+  const f={
+    ref:genRef(),
+    subject:$('#nf-subject').value||'Untitled',
+    depts:Array.from($('#nf-depts').selectedOptions).map(o=>o.value),
+    owner:$('#nf-owner').value||db.currentUser.username,
+    status:'New',
+    due:$('#nf-due').value,
+    star:false,
+    desc:$('#nf-desc').value,
+    tags:($('#nf-tags').value||'').split(',').map(s=>s.trim()).filter(Boolean),
+    history:[{at:Date.now(),by:who(),act:'Created'}],
+    comments:[],attachments:[],route:[]
+  };
+  db.files.unshift(f); log('Create',f); save(); closeModals(); renderAll(); select(f.ref)
+}
+function genRef(){ let n=1; while(db.files.some(x=>x.ref==='F'+String(n).padStart(3,'0'))) n++; return 'F'+String(n).padStart(3,'0') }
+
+/* --- Navigation & Search --- */
+$('#nav').addEventListener('click',e=>{ const b=e.target.closest('button[data-view]'); if(!b) return; $$('#nav button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); state.view=b.dataset.view; route() })
+$('#quick').addEventListener('click',e=>{ const b=e.target.closest('button[data-filter]'); if(!b) return; state.filter=b.dataset.filter; route('files') })
+$('#q').addEventListener('input',e=>{ state.q=e.target.value; renderRows() });
+window.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='/'){ e.preventDefault(); $('#q').focus() } if(e.key==='Delete'&&state.sel){ /* archive to Closed */ const f=db.files.find(x=>x.ref===state.sel); if(f){ f.status='Closed'; note(f,who(),'Archived (Closed)'); log('Archive',f); save(); renderAll()} } })
+$('#btn-adv').onclick=()=> $('#dlg-adv').showModal();
+
+/* --- Advanced Search Modal --- */
+const advHtml=`
+<dialog id="dlg-adv">
+  <div class="modal-head"><svg class="k" width="18" height="18"><use href="#ico-search"/></svg> Advanced Search</div>
+  <div class="modal-body">
+    <div class="input"><label>Status</label>
+      <select id="adv-status"><option value="">Any</option><option>New</option><option>Pending</option><option>In Review</option><option>Approved</option><option>Rejected</option><option>Closed</option></select></div>
+    <div class="input"><label>Department</label>
+      <select id="adv-dept"></select></div>
+    <div class="input"><label>Due before</label><input id="adv-due" type="date"/></div>
+    <div class="input"><label>Has tag</label><input id="adv-tag" placeholder="urgent"/></div>
+  </div>
+  <div class="modal-foot"><button class="btn" data-close>Close</button><button class="btn primary" id="adv-apply">Apply</button></div>
+</dialog>`;
+document.body.insertAdjacentHTML('beforeend', advHtml);
+function wireAdvancedDept(){ const s=$('#adv-dept'); s.innerHTML = '<option value=\"\">Any</option>'+DEPARTMENTS.map(d=>`<option>${d}</option>`).join(''); }
+$('#adv-apply').onclick=()=>{ state.adv={ status:$('#adv-status').value, dept:$('#adv-dept').value, due:$('#adv-due').value, tag:$('#adv-tag').value }; closeModals(); renderAll() }
+
+/* --- Settings & Users --- */
+$('#opt-compact').onchange=()=>{ db.prefs.compact=$('#opt-compact').checked; save(); document.body.style.setProperty('--rowh', db.prefs.compact?'34px':'auto') }
+$('#opt-sla').onchange=()=>{ db.prefs.sla=$('#opt-sla').checked; save(); renderAll() }
+$('#opt-quota').onchange=()=>{ db.prefs.quota=+$('#opt-quota').value||500; save(); toast('Quota set to '+db.prefs.quota+'MB') }
+
+$('#ua-add').onclick=()=>{
+  const can=perms(db.currentUser.klass).seeAll; if(!can) return toast('Admins/Directors only');
+  const u={username:$('#ua-user').value.trim(),password:$('#ua-pass').value.trim(),klass:$('#ua-class').value,dept:$('#ua-dept').value};
+  if(!u.username||!u.password) return toast('Username & password required');
+  if(db.users.some(x=>x.username.toLowerCase()===u.username.toLowerCase())) return toast('User exists');
+  db.users.push(u); save(); renderUsers(); toast('User added');
+}
+
+function renderUsers(){
+  const wrap=$('#ua-list'); wrap.innerHTML='';
+  db.users.forEach(u=>{
+    const div=document.createElement('div'); div.className='chip'; div.textContent=`${u.username} [${u.klass}/${u.dept}]`;
+    wrap.appendChild(div);
+  });
+}
+
+/* --- Modal Closing helpers --- */
+function closeModals(){ $$('dialog[open]').forEach(d=>d.close()) }
+$$('dialog [data-close]').forEach(b=> b.addEventListener('click',()=>b.closest('dialog').close()))
+
+/* --- Routing --- */
+function route(to){ if(to) state.view=to;
+  $('#board-view').style.display='none'; $('#reports-view').style.display='none'; $('#audit-view').style.display='none'; $('#settings-view').style.display='none'; $('#view').style.display='grid';
+  if(state.view==='dashboard' || state.view==='inbox' || state.view==='outbox' || state.view==='files'){ renderRows(); renderDetail() }
+  if(state.view==='board'){ $('#view').style.display='none'; $('#board-view').style.display='block'; renderBoard() }
+  if(state.view==='reports'){ $('#view').style.display='none'; $('#reports-view').style.display='block'; renderReports() }
+  if(state.view==='audit'){ $('#view').style.display='none'; $('#audit-view').style.display='block'; renderAudit() }
+  if(state.view==='settings'){ $('#view').style.display='none'; $('#settings-view').style.display='block';
+    $('#opt-compact').checked=db.prefs.compact; $('#opt-sla').checked=db.prefs.sla; $('#opt-quota').value=db.prefs.quota; renderUsers();
+  }
+}
+function renderAll(){ renderRows(); renderDetail(); if(state.view==='board') renderBoard(); if(state.view==='reports') renderReports(); renderAudit() }
+
+/* =================== LOGIN & SESSION =================== */
+function tryLogin(username,password,klass,dept){
+  const found=db.users.find(u=>u.username===username);
+  if(found){
+    if(found.password!==password) return toast('Wrong password');
+    db.currentUser={username:found.username,klass:found.klass,dept:found.dept};
+  }else{
+    if(!password) return toast('User not found');
+    db.currentUser={username,klass,dept};
+    db.users.push({username,password,klass,dept});
+  }
+  save();
+  $('#who').textContent=`${db.currentUser.username} • Class ${db.currentUser.klass} • ${db.currentUser.dept}`;
+  $('#login').style.display='none';
+  $('#app').style.visibility='visible';
+  renderAll();
+  toast('Welcome '+db.currentUser.username);
+}
+
+$('#li-login').onclick=()=> tryLogin($('#li-user').value.trim(), $('#li-pass').value, $('#li-class').value, $('#li-dept').value);
+$('#li-create').onclick=()=>{
+  const u=$('#li-user').value.trim(), p=$('#li-pass').value.trim();
+  if(!u || !p) return toast('Enter username & password');
+  if(db.users.some(x=>x.username.toLowerCase()===u.toLowerCase())) return toast('User exists');
+  db.users.push({username:u,password:p,klass:$('#li-class').value,dept:$('#li-dept').value}); save(); toast('Account created — now sign in');
+}
+$('#li-cancel').onclick=()=> toast('Sign in to continue');
+$('#btn-logout').onclick=()=>{ db.currentUser=null; save(); location.reload() }
+
+/* =================== Edit Dialog (Departments list) =================== */
+const editHtml=`
+<dialog id="dlg-edit">
+  <div class="modal-head"><svg class="k" width="18" height="18"><use href="#ico-edit"/></svg> Edit File</div>
+  <div class="modal-body">
+    <div class="input"><label>Subject</label><input id="ed-subject"/></div>
+    <div class="input"><label>Departments</label>
+      <select id="ed-depts" multiple size="9" class="dept-multi"></select>
+    </div>
+    <div class="input"><label>Owner</label><input id="ed-owner"/></div>
+    <div class="input"><label>Status</label>
+      <select id="ed-status"><option>New</option><option>Pending</option><option>In Review</option><option>Approved</option><option>Rejected</option><option>Closed</option></select>
+    </div>
+    <div class="input"><label>Due</label><input id="ed-due" type="date"/></div>
+    <div class="input"><label>Tags</label><input id="ed-tags" placeholder="comma, separated"/></div>
+    <div class="input"><label>Description</label><textarea id="ed-desc" rows="3"></textarea></div>
+  </div>
+  <div class="modal-foot">
+    <button class="btn" data-close>Cancel</button>
+    <button class="btn danger" id="ed-delete"><svg><use href="#ico-trash"/></svg>Delete</button>
+    <button class="btn primary" id="ed-save"><svg><use href="#ico-check"/></svg>Save</button>
+  </div>
+</dialog>`;
+document.body.insertAdjacentHTML('beforeend', editHtml);
+
+/* =================== Boot =================== */
+function boot(){
+  hydrateDeptSelects();
+  wireAdvancedDept();
+  if(db.currentUser){
+    $('#who').textContent=`${db.currentUser.username} • Class ${db.currentUser.klass} • ${db.currentUser.dept}`;
+    $('#login').style.display='none'; $('#app').style.visibility='visible';
+  }else{
+    $('#login').style.display='grid';
+  }
+  renderAll();
+}
+boot();
+</script>
+</body>
+
+</html>
