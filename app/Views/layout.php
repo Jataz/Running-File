@@ -34,7 +34,7 @@
       <div style="font-weight:800">📁 Running File System — Ministry DMS <span class="badge">Official</span></div>
       <?php if ($u): ?>
         <div class="pill" style="margin-left:12px;flex:1"><input placeholder="Search"/></div>
-        <a class="btn" href="/upload.php">New File</a>
+        <a class="btn" id="btn-new-file" href="/files/new">New File</a>
         <a class="btn" href="/admin/users">Manage Users</a>
         <a class="btn" href="/logout.php?go=login">Logout</a>
       <?php else: ?>
@@ -64,5 +64,97 @@
       </section>
     </main>
   </div>
+  
+  <!-- Global Modal Styles and New File Modal -->
+  <style>
+    dialog::backdrop{ background:rgba(12,18,30,.35); backdrop-filter: blur(2px); }
+    dialog{ border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); padding:0; }
+    .modal{ display:grid; grid-template-rows:auto 1fr auto; min-width:640px; }
+    .modal-head{ padding:12px; border-bottom:1px solid var(--border); font-weight:800; color:var(--text); }
+    .modal-body{ padding:12px; }
+    .modal-foot{ padding:12px; border-top:1px solid var(--border); display:flex; gap:8px; justify-content:flex-end; }
+    .input{ display:grid; gap:6px; }
+    .input label{ color:#134e75; font-weight:700; }
+    .input input, .input select, .input textarea{ border:1px solid var(--border); border-radius:10px; padding:10px; background:#fff; color:#0b1b2b; }
+  </style>
+
+  <?php if ($u): ?>
+  <dialog id="dlg-new-file">
+    <div class="modal">
+      <div class="modal-head">Create New File</div>
+      <div class="modal-body" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">
+        <div class="input"><label>Subject</label><input id="nf-subject" placeholder="e.g. Procurement of Supplies" required /></div>
+        <div class="input"><label>Owner</label><input id="nf-owner" value="<?= htmlspecialchars($u['username'] ?? '') ?>" /></div>
+        <div class="input"><label>Due Date</label><input id="nf-due" type="date" /></div>
+        <div class="input"><label>Tags</label><input id="nf-tags" placeholder="comma,separated,tags" /></div>
+        <div class="input" style="grid-column:1/-1"><label>Description</label><textarea id="nf-desc" rows="3" placeholder="Short description"></textarea></div>
+        <div class="input" style="grid-column:1/-1">
+          <label>Departments</label>
+          <select id="nf-depts" multiple size="6" style="height:auto"></select>
+          <div class="badge" id="nf-depts-msg" style="margin-top:6px">Select departments to route this file. If none selected, your department is used.</div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" data-close>Cancel</button>
+        <button class="btn primary" id="nf-create">Create</button>
+      </div>
+    </div>
+  </dialog>
+  <script>
+    (function(){
+      function api(url, opts={}){ return fetch(url, Object.assign({ credentials:'include' }, opts)).then(async r=>{ if(!r.ok) throw new Error(await r.text()); const ct=r.headers.get('content-type')||''; return ct.includes('application/json')? r.json(): r.text(); }); }
+      const btn = document.getElementById('btn-new-file');
+      const dlg = document.getElementById('dlg-new-file');
+      const sel = document.getElementById('nf-depts');
+      const closeBtns = dlg.querySelectorAll('[data-close]');
+      closeBtns.forEach(b=> b.addEventListener('click', ()=>{ try{ dlg.close(); }catch(e){} }));
+      async function loadDepartments(){
+        if (!sel) return;
+        sel.innerHTML = '';
+        try {
+          const data = await api('/api/departments.php');
+          const items = (data && data.items) ? data.items : [];
+          for (const d of items){
+            const opt = document.createElement('option');
+            opt.value = d.id; opt.textContent = d.name + (d.code? ' ('+d.code+')':'' );
+            sel.appendChild(opt);
+          }
+        } catch(e) {
+          const opt = document.createElement('option'); opt.textContent = 'Failed to load departments'; opt.disabled = true; sel.appendChild(opt);
+        }
+      }
+      if (btn) {
+        btn.addEventListener('click', async (ev)=>{
+          // Prefer modal; keep href working as full-page fallback.
+          ev.preventDefault();
+          await loadDepartments();
+          try{ dlg.showModal(); }catch(e){}
+        });
+      }
+      const createBtn = document.getElementById('nf-create');
+      if (createBtn) createBtn.addEventListener('click', async ()=>{
+        const fd = new FormData();
+        fd.append('subject', document.getElementById('nf-subject').value||'');
+        fd.append('owner', document.getElementById('nf-owner').value||'');
+        fd.append('due', document.getElementById('nf-due').value||'');
+        fd.append('tags', document.getElementById('nf-tags').value||'');
+        fd.append('description', document.getElementById('nf-desc').value||'');
+        // departments
+        const selected = Array.from(sel.selectedOptions).map(o=>o.value);
+        for (const id of selected) fd.append('dept_ids[]', id);
+        createBtn.disabled = true; createBtn.textContent = 'Creating…';
+        try {
+          const res = await api('/api/files_create.php', { method:'POST', body: fd });
+          try{ dlg.close(); }catch(e){}
+          window.location.href = '/outbox';
+        } catch(e) {
+          alert('Create failed');
+        } finally {
+          createBtn.disabled = false; createBtn.textContent = 'Create';
+        }
+      });
+    })();
+  </script>
+  <?php endif; ?>
 </body>
 </html>
