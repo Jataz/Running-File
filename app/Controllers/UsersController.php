@@ -7,8 +7,9 @@ class UsersController {
         require_auth();
         $u = current_user();
         if (!$u || ($u['class'] ?? '') !== 'E') {
-            http_response_code(403);
-            echo 'Forbidden';
+            // Hide unauthorized access instead of 403
+            http_response_code(404);
+            echo 'Not Found';
             return;
         }
         try {

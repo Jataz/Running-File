@@ -76,7 +76,8 @@
               <td><?= htmlspecialchars($d['description'] ?? '') ?></td>
               <td>
                 <a class="btn" href="/download.php?id=<?= (int)$d['id'] ?>">Download</a>
-                <?php if ($canEdit): ?>
+                <?php $cu = current_user(); $isDocOwner = $cu && (((int)($d['uploaded_by'] ?? 0) === (int)$cu['id']) || class_has_all_access($cu['class'] ?? '')); ?>
+                <?php if ($isDocOwner): ?>
                   <a class="btn" href="/delete.php?id=<?= (int)$d['id'] ?>&file_id=<?= (int)$file['id'] ?>" onclick="return confirm('Delete this document?')">Delete</a>
                 <?php endif; ?>
               </td>

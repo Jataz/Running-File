@@ -14,23 +14,16 @@ $user = current_user();
 
 try {
     $pdo = get_pdo();
-    $stmt = $pdo->prepare('SELECT stored_name, file_id FROM documents WHERE id = ?');
+    $stmt = $pdo->prepare('SELECT stored_name, file_id, uploaded_by FROM documents WHERE id = ?');
     $stmt->execute([$id]);
     $row = $stmt->fetch();
     if ($row) {
-        // Permission: allow creator of the parent file or privileged classes
-        $allowed = false;
-        if (can_delete_by_class($user['class'])) {
-            $allowed = true;
-        } else {
-            $fs = $pdo->prepare('SELECT created_by FROM files WHERE id = ?');
-            $fs->execute([(int)($row['file_id'] ?? 0)]);
-            $f = $fs->fetch();
-            if ($f && (int)$f['created_by'] === (int)$user['id']) { $allowed = true; }
-        }
+        // Permission: only document owner may delete; admins (C/D/E) may also delete
+        $allowed = can_delete_by_class($user['class']) || ((int)($row['uploaded_by'] ?? 0) === (int)$user['id']);
         if (!$allowed) {
-            http_response_code(403);
-            echo 'Forbidden';
+            // Hide unauthorized by silent redirect
+            $redirFileId = isset($_GET['file_id']) ? (int)$_GET['file_id'] : (int)($row['file_id'] ?? 0);
+            header('Location: ' . ($redirFileId > 0 ? '/files/' . $redirFileId : '/dashboard'));
             exit;
         }
 

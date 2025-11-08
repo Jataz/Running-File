@@ -8,14 +8,31 @@ class DashboardController {
         $u = current_user();
         try {
             $pdo = get_pdo();
-            $total = (int)$pdo->query("SELECT COUNT(*) AS c FROM files")->fetch()['c'];
-            $byStatus = $pdo->query("SELECT status, COUNT(*) AS c FROM files GROUP BY status")->fetchAll();
-            $recent = $pdo->query("SELECT id, ref, subject, owner, status, due_date, created_at FROM files ORDER BY created_at DESC LIMIT 10")->fetchAll();
-
-            // Role-based reports
             $uid = (int)($u['id'] ?? 0);
             $deptId = (int)($u['department_id'] ?? 0);
             $allAccess = class_has_all_access($u['class'] ?? '');
+
+            if ($allAccess) {
+                $total = (int)$pdo->query("SELECT COUNT(*) AS c FROM files")->fetch()['c'];
+                $byStatus = $pdo->query("SELECT status, COUNT(*) AS c FROM files GROUP BY status")->fetchAll();
+                $recent = $pdo->query("SELECT id, ref, subject, owner, status, due_date, created_at FROM files ORDER BY created_at DESC LIMIT 10")->fetchAll();
+            } else {
+                // Entitled files: created by me OR routed to my department
+                $tstmt = $pdo->prepare("SELECT COUNT(DISTINCT f.id) AS c FROM files f LEFT JOIN file_departments fd ON fd.file_id = f.id WHERE f.created_by = ? OR fd.department_id = ?");
+                $tstmt->execute([$uid, $deptId]);
+                $total = (int)$tstmt->fetch()['c'];
+
+                $bstmt = $pdo->prepare("SELECT f.status, COUNT(DISTINCT f.id) AS c FROM files f LEFT JOIN file_departments fd ON fd.file_id = f.id WHERE f.created_by = ? OR fd.department_id = ? GROUP BY f.status");
+                $bstmt->execute([$uid, $deptId]);
+                $byStatus = $bstmt->fetchAll();
+
+                $rstmt = $pdo->prepare("SELECT DISTINCT f.id, f.ref, f.subject, f.owner, f.status, f.due_date, f.created_at FROM files f LEFT JOIN file_departments fd ON fd.file_id = f.id WHERE f.created_by = ? OR fd.department_id = ? ORDER BY f.created_at DESC LIMIT 10");
+                $rstmt->execute([$uid, $deptId]);
+                $recent = $rstmt->fetchAll();
+            }
+
+            // Role-based reports
+            // Reuse entitlement context for role-based KPIs
 
             // My outgoing files
             $myOutgoing = (int)($pdo->prepare("SELECT COUNT(*) AS c FROM files WHERE created_by = ?")->execute([$uid]) ? $pdo->query("SELECT COUNT(*) AS c FROM files WHERE created_by = $uid")->fetch()['c'] : 0);

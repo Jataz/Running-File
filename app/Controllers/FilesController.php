@@ -63,13 +63,14 @@ class FilesController {
                 $cstmt->execute([$id, (int)($u['department_id'] ?? 0)]);
                 $allowed = (bool)$cstmt->fetchColumn();
                 if (!$allowed) {
-                    http_response_code(403);
-                    echo 'Forbidden';
+                    // Hide unauthorized access
+                    http_response_code(404);
+                    echo 'Not Found';
                     return;
                 }
             }
 
-            $dstmt = $pdo->prepare('SELECT id, original_name, mime_type, size, uploaded_at, description FROM documents WHERE file_id = ? ORDER BY uploaded_at DESC');
+            $dstmt = $pdo->prepare('SELECT id, original_name, mime_type, size, uploaded_at, description, uploaded_by FROM documents WHERE file_id = ? ORDER BY uploaded_at DESC');
             $dstmt->execute([$id]);
             $docs = $dstmt->fetchAll();
         } catch (Throwable $e) {
