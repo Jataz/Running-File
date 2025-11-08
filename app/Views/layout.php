@@ -34,8 +34,10 @@
       <div style="font-weight:800">📁 Running File System — Ministry DMS <span class="badge">Official</span></div>
       <?php if ($u): ?>
         <div class="pill" style="margin-left:12px;flex:1"><input placeholder="Search"/></div>
-        <a class="btn" id="btn-new-file" href="/files/new">New File</a>
-        <a class="btn" href="/admin/users">Manage Users</a>
+        <a class="btn" id="btn-new-file" href="/files/new">Upload</a>
+        <?php if (($u['class'] ?? '') === 'E'): ?>
+          <a class="btn" href="/admin/users">Manage Users</a>
+        <?php endif; ?>
         <a class="btn" href="/logout.php?go=login">Logout</a>
       <?php else: ?>
         <div style="margin-left:auto"><a class="btn primary" href="/login">Login</a></div>
