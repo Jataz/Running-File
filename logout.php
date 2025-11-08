@@ -9,6 +9,12 @@ if (ini_get('session.use_cookies')) {
 }
 session_destroy();
 
+// If request asks to redirect, send user to login page
+if (isset($_GET['go']) && $_GET['go'] === 'login') {
+    header('Location: /login');
+    exit;
+}
+
 header('Content-Type: application/json');
 echo json_encode(['ok' => true]);
 ?>

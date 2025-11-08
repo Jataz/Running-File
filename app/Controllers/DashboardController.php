@@ -18,13 +18,14 @@ class DashboardController {
         }
         $title = 'Dashboard';
         $content = $this->renderView(__DIR__ . '/../Views/dashboard/index.php', [ 'total' => $total, 'byStatus' => $byStatus, 'recent' => $recent ]);
-        $this->renderLayout($title, $content);
+        $this->renderLayout($title, $content, 'light');
     }
 
-    private function renderLayout(string $title, string $content): void {
+    private function renderLayout(string $title, string $content, string $theme = ''): void {
         $layoutPath = __DIR__ . '/../Views/layout.php';
         $pageTitle = $title;
         $pageContent = $content;
+        $theme = $theme; // pass theme to layout for optional light styling
         include $layoutPath;
     }
     private function renderView(string $path, array $vars): string {

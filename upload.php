@@ -80,6 +80,25 @@ if (!move_uploaded_file($tmpPath, $destination)) {
 
 try {
     $pdo = get_pdo();
+    // If no file_id provided, create a new business file and link to user's dept
+    if ($fileId <= 0) {
+        $pdo->beginTransaction();
+        $subject = $originalName;
+        $owner = $user['username'] ?? '';
+        $insFile = $pdo->prepare('INSERT INTO files (ref, subject, owner, due_date, tags, description, status, created_by) VALUES (NULL,?,?,?,?,?,"new",?)');
+        $insFile->execute([$subject, $owner, null, '', 'Uploaded via New File', (int)($user['id'] ?? 0)]);
+        $fileId = (int)$pdo->lastInsertId();
+        $ref = 'F-' . str_pad((string)$fileId, 6, '0', STR_PAD_LEFT);
+        $updRef = $pdo->prepare('UPDATE files SET ref = ? WHERE id = ?');
+        $updRef->execute([$ref, $fileId]);
+        // Map to department: restricted classes must map to their own department
+        $deptId = (int)($user['department_id'] ?? 0);
+        if ($deptId > 0) {
+            $link = $pdo->prepare('INSERT IGNORE INTO file_departments (file_id, department_id) VALUES (?, ?)');
+            $link->execute([$fileId, $deptId]);
+        }
+        $pdo->commit();
+    }
     $stmt = $pdo->prepare('INSERT INTO documents (stored_name, original_name, mime_type, size, description, sha256, department_id, uploaded_by, file_id) VALUES (?,?,?,?,?,?,?,?,?)');
     $stmt->execute([
         $storedName,
@@ -98,7 +117,8 @@ try {
     fail('Database error: ' . $e->getMessage(), 500);
 }
 
-header('Location: /index.html?uploaded=1');
+// After upload, go to the new file's details or outbox
+header('Location: /outbox');
 exit;
 
 ?>
