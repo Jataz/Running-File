@@ -1,7 +1,7 @@
 <?php /** @var array $items */ ?>
 <div class="badge">Files you created</div>
 <table>
-  <thead><tr><th style="width:110px">Ref</th><th>Subject</th><th style="width:180px">Departments</th><th style="width:120px">Owner</th><th style="width:120px">Status</th><th style="width:160px">Due</th></tr></thead>
+  <thead><tr><th style="width:110px">Ref</th><th>Subject</th><th style="width:180px">Departments</th><th style="width:120px">Owner</th><th style="width:120px">Status</th><th style="width:160px">Due</th><th style="width:120px">Actions</th></tr></thead>
   <tbody>
     <?php foreach ($items as $it): ?>
       <tr>
@@ -11,6 +11,7 @@
         <td><?= htmlspecialchars($it['owner'] ?? '') ?></td>
         <td><?= htmlspecialchars($it['status'] ?? 'new') ?></td>
         <td><?= htmlspecialchars($it['due_date'] ?? '') ?></td>
+        <td><a class="btn" href="/files/<?= (int)$it['id'] ?>">View</a></td>
       </tr>
     <?php endforeach; ?>
   </tbody>

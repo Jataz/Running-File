@@ -24,6 +24,7 @@ if ($uri === '/login') { require __DIR__ . '/login.php'; return true; }
 if ($uri === '/dashboard') { require __DIR__ . '/dashboard.php'; return true; }
 if ($uri === '/files') { require __DIR__ . '/files.php'; return true; }
 if ($uri === '/files/new') { require __DIR__ . '/files_new.php'; return true; }
+if (preg_match('#^/files/(\d+)$#', $uri, $m)) { $_GET['id'] = (int)$m[1]; require __DIR__ . '/files_show.php'; return true; }
 if ($uri === '/inbox') { require __DIR__ . '/inbox.php'; return true; }
 if ($uri === '/outbox') { require __DIR__ . '/outbox.php'; return true; }
 if ($uri === '/board') { require __DIR__ . '/board.php'; return true; }

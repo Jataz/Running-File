@@ -7,7 +7,7 @@
     <?php endforeach; ?>
   </div>
   <table>
-    <thead><tr><th style="width:110px">Ref</th><th>Subject</th><th style="width:120px">Owner</th><th style="width:120px">Status</th><th style="width:160px">Due</th><th style="width:180px">Created</th></tr></thead>
+    <thead><tr><th style="width:110px">Ref</th><th>Subject</th><th style="width:120px">Owner</th><th style="width:120px">Status</th><th style="width:160px">Due</th><th style="width:180px">Created</th><th style="width:120px">Actions</th></tr></thead>
     <tbody>
       <?php foreach ($recent as $f): ?>
       <tr>
@@ -17,6 +17,7 @@
         <td><?= htmlspecialchars($f['status'] ?? 'new') ?></td>
         <td><?= htmlspecialchars($f['due_date'] ?? '') ?></td>
         <td><?= htmlspecialchars($f['created_at'] ?? '') ?></td>
+        <td><a class="btn" href="/files/<?= (int)$f['id'] ?>">View</a></td>
       </tr>
       <?php endforeach; ?>
     </tbody>

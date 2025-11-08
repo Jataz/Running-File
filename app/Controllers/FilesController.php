@@ -31,6 +31,56 @@ class FilesController {
         $this->renderLayout($title, $content);
     }
 
+    public function show(int $id): void {
+        require_auth();
+        $u = current_user();
+        if ($id <= 0) {
+            http_response_code(400);
+            echo 'Invalid file id';
+            return;
+        }
+        try {
+            $pdo = get_pdo();
+            $fstmt = $pdo->prepare(
+                "SELECT f.*, GROUP_CONCAT(d.name ORDER BY d.name SEPARATOR ', ') AS departments
+                   FROM files f
+                   LEFT JOIN file_departments fd ON fd.file_id = f.id
+                   LEFT JOIN departments d ON d.id = fd.department_id
+                  WHERE f.id = ?
+                  GROUP BY f.id"
+            );
+            $fstmt->execute([$id]);
+            $file = $fstmt->fetch();
+            if (!$file) {
+                http_response_code(404);
+                echo 'File not found';
+                return;
+            }
+            if (!class_has_all_access($u['class'])) {
+                $cstmt = $pdo->prepare('SELECT 1 FROM file_departments WHERE file_id = ? AND department_id = ?');
+                $cstmt->execute([$id, (int)($u['department_id'] ?? 0)]);
+                $allowed = (bool)$cstmt->fetchColumn();
+                if (!$allowed) {
+                    http_response_code(403);
+                    echo 'Forbidden';
+                    return;
+                }
+            }
+
+            $dstmt = $pdo->prepare('SELECT id, original_name, mime_type, size, uploaded_at, description FROM documents WHERE file_id = ? ORDER BY uploaded_at DESC');
+            $dstmt->execute([$id]);
+            $docs = $dstmt->fetchAll();
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo 'Server error: ' . htmlspecialchars($e->getMessage());
+            return;
+        }
+
+        $title = 'File Details';
+        $content = $this->renderView(__DIR__ . '/../Views/files/show.php', [ 'file' => $file, 'docs' => $docs ]);
+        $this->renderLayout($title, $content);
+    }
+
     private function renderLayout(string $title, string $content): void {
         $layoutPath = __DIR__ . '/../Views/layout.php';
         $pageTitle = $title;
