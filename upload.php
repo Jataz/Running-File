@@ -111,13 +111,23 @@ try {
         (int)($user['id'] ?? 0),
         ($fileId > 0 ? $fileId : null),
     ]);
+    $docId = (int)$pdo->lastInsertId();
 } catch (Throwable $e) {
     // On DB error, try to remove the file
     @unlink($destination);
     fail('Database error: ' . $e->getMessage(), 500);
 }
 
-// After upload, go to the new file's details or outbox
+// Support JSON response mode for fetch/XHR uploads
+$accept = $_SERVER['HTTP_ACCEPT'] ?? '';
+$respond = $_POST['respond'] ?? '';
+if (stripos($accept, 'application/json') !== false || $respond === 'json') {
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => true, 'document_id' => $docId, 'file_id' => $fileId, 'name' => $originalName]);
+    exit;
+}
+
+// After upload, go to outbox
 header('Location: /outbox');
 exit;
 

@@ -88,6 +88,8 @@
         <div class="input"><label>Due Date</label><input id="nf-due" type="date" /></div>
         <div class="input"><label>Tags</label><input id="nf-tags" placeholder="comma,separated,tags" /></div>
         <div class="input" style="grid-column:1/-1"><label>Description</label><textarea id="nf-desc" rows="3" placeholder="Short description"></textarea></div>
+        <div class="input" style="grid-column:1/-1"><label>Attach Document (optional)</label><input id="nf-file" type="file" /></div>
+        <div class="input" style="grid-column:1/-1"><label>Document Description</label><input id="nf-docdesc" placeholder="Describe the attachment (optional)" /></div>
         <div class="input" style="grid-column:1/-1">
           <label>Departments</label>
           <select id="nf-depts" multiple size="6" style="height:auto"></select>
@@ -145,6 +147,17 @@
         createBtn.disabled = true; createBtn.textContent = 'Creating…';
         try {
           const res = await api('/api/files_create.php', { method:'POST', body: fd });
+          const fileId = (res && res.id) ? res.id : null;
+          const input = document.getElementById('nf-file');
+          const hasFile = input && input.files && input.files.length > 0;
+          if (hasFile && fileId) {
+            const fd2 = new FormData();
+            fd2.append('file_id', fileId);
+            fd2.append('respond', 'json');
+            fd2.append('description', document.getElementById('nf-docdesc').value||'');
+            fd2.append('file', input.files[0]);
+            try { await api('/upload.php', { method:'POST', body: fd2 }); } catch(e) { alert('Upload failed'); }
+          }
           try{ dlg.close(); }catch(e){}
           window.location.href = '/outbox';
         } catch(e) {
