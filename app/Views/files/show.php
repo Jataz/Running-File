@@ -37,7 +37,7 @@
       </div>
       <div>
         <div style="font-weight:600;color:#2a4365">Created By</div>
-        <div><?= htmlspecialchars((string)($file['created_by'] ?? '')) ?></div>
+        <div><?= htmlspecialchars($file['created_by_username'] ?? (string)($file['created_by'] ?? '')) ?></div>
       </div>
     </div>
   </div>

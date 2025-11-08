@@ -1,5 +1,5 @@
 <?php /** @var array $items */ ?>
-<table>
+<table data-enhance="true" data-page-size="10">
   <thead>
     <tr>
       <th style="width:110px">Ref</th>

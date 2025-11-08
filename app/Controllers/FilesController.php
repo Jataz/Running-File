@@ -42,10 +42,12 @@ class FilesController {
         try {
             $pdo = get_pdo();
             $fstmt = $pdo->prepare(
-                "SELECT f.*, GROUP_CONCAT(d.name ORDER BY d.name SEPARATOR ', ') AS departments
+                "SELECT f.*, u.username AS created_by_username,
+                        GROUP_CONCAT(d.name ORDER BY d.name SEPARATOR ', ') AS departments
                    FROM files f
                    LEFT JOIN file_departments fd ON fd.file_id = f.id
                    LEFT JOIN departments d ON d.id = fd.department_id
+                   LEFT JOIN users u ON u.id = f.created_by
                   WHERE f.id = ?
                   GROUP BY f.id"
             );
