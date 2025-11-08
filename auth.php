@@ -39,6 +39,13 @@ if ($action === 'login' && $method === 'POST') {
         exit;
     }
 
+    // Deny login for disabled users when 'active' flag exists
+    if (array_key_exists('active', (array)$user) && (int)$user['active'] === 0) {
+        http_response_code(403);
+        echo json_encode(['error' => 'inactive']);
+        exit;
+    }
+
     // Optional: verify selected class/department matches stored profile
     if ($class && $class !== $user['class']) {
         http_response_code(403);

@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS users (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 SQL);
 
+    // Add 'active' flag for enabling/disabling users (idempotent)
+    try { $pdo->exec("ALTER TABLE users ADD COLUMN active TINYINT(1) NOT NULL DEFAULT 1"); } catch (Throwable $e) { /* ignore if exists */ }
+
     $pdo->exec(<<<SQL
 CREATE TABLE IF NOT EXISTS documents (
   id INT AUTO_INCREMENT PRIMARY KEY,
