@@ -11,7 +11,10 @@
         <td><?= htmlspecialchars($it['owner'] ?? '') ?></td>
         <td><?= htmlspecialchars($it['status'] ?? 'new') ?></td>
         <td><?= htmlspecialchars($it['due_date'] ?? '') ?></td>
-        <td><a class="btn" href="/files/<?= (int)$it['id'] ?>">View</a></td>
+        <td>
+          <a class="btn" href="/files/<?= (int)$it['id'] ?>">View</a>
+          <a class="btn" href="/files/<?= (int)$it['id'] ?>#edit">Edit</a>
+        </td>
       </tr>
     <?php endforeach; ?>
   </tbody>
