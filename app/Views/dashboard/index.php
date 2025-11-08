@@ -6,7 +6,7 @@
       <span class="badge"><?= htmlspecialchars($row['status']) ?>: <?= (int)$row['c'] ?></span>
     <?php endforeach; ?>
   </div>
-  <table>
+  <table data-enhance="true" data-page-size="10">
     <thead><tr><th style="width:110px">Ref</th><th>Subject</th><th style="width:120px">Owner</th><th style="width:120px">Status</th><th style="width:160px">Due</th><th style="width:180px">Created</th><th style="width:120px">Actions</th></tr></thead>
     <tbody>
       <?php foreach ($recent as $f): ?>

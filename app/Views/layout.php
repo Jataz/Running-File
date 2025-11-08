@@ -169,5 +169,59 @@
     })();
   </script>
   <?php endif; ?>
+
+  <!-- Lightweight Table Search & Pagination -->
+  <style>
+    .table-tools{ display:flex; gap:8px; align-items:center; margin:8px 0; }
+    .table-tools .pill{ height:32px; box-shadow:none; }
+    .pager{ display:flex; gap:6px; align-items:center; }
+    .pager button{ height:28px; padding:0 8px; }
+    .pager .badge{ background:#eef6ff; }
+  </style>
+  <script>
+    (function(){
+      function enhanceTable(tbl){
+        const wrapper = document.createElement('div'); wrapper.className='table-tools';
+        const searchWrap = document.createElement('div'); searchWrap.className='pill'; const searchInput=document.createElement('input'); searchInput.placeholder='Search table…'; searchWrap.appendChild(searchInput);
+        const sizeSel=document.createElement('select'); [10,25,50].forEach(n=>{ const o=document.createElement('option'); o.value=String(n); o.textContent=n+' / page'; sizeSel.appendChild(o); });
+        const pager=document.createElement('div'); pager.className='pager'; const prev=document.createElement('button'); prev.className='btn'; prev.textContent='Prev'; const next=document.createElement('button'); next.className='btn'; next.textContent='Next'; const info=document.createElement('span'); info.className='badge'; info.textContent='Page 1'; pager.append(prev, next, info);
+        wrapper.append(searchWrap, sizeSel, pager);
+        tbl.parentNode.insertBefore(wrapper, tbl);
+
+        const tbody = tbl.querySelector('tbody'); if(!tbody) return;
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        let filtered = rows.map((_,i)=>i);
+        let pageSize = parseInt(tbl.dataset.pageSize||sizeSel.value||'10',10) || 10;
+        sizeSel.value = String(pageSize);
+        let page = 1;
+
+        function apply(){
+          const total = filtered.length; const pages = Math.max(1, Math.ceil(total / pageSize));
+          if(page>pages) page=pages; if(page<1) page=1;
+          const start = (page-1)*pageSize; const end = start + pageSize;
+          rows.forEach((r,i)=>{ const show = filtered.indexOf(i)>=0 && filtered.indexOf(i)>=start && filtered.indexOf(i)<end; r.style.display = show? '' : 'none'; });
+          info.textContent = `Page ${page} / ${pages} — ${total} rows`;
+          prev.disabled = page<=1; next.disabled = page>=pages;
+        }
+        function runSearch(){
+          const q = (searchInput.value||'').toLowerCase();
+          if(!q){ filtered = rows.map((_,i)=>i); apply(); return; }
+          filtered = rows.map((r,i)=>({ r,i })).filter(obj=>{
+            return Array.from(obj.r.cells).some(td=> (td.textContent||'').toLowerCase().includes(q));
+          }).map(obj=>obj.i);
+          page = 1; apply();
+        }
+
+        searchInput.addEventListener('input', runSearch);
+        sizeSel.addEventListener('change', ()=>{ pageSize = parseInt(sizeSel.value,10)||10; page=1; apply(); });
+        prev.addEventListener('click', ()=>{ page--; apply(); });
+        next.addEventListener('click', ()=>{ page++; apply(); });
+        apply();
+      }
+      document.addEventListener('DOMContentLoaded', ()=>{
+        document.querySelectorAll('table[data-enhance="true"]').forEach(enhanceTable);
+      });
+    })();
+  </script>
 </body>
 </html>

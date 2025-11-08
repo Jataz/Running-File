@@ -4,7 +4,7 @@
     <button class="btn primary" id="btn-new-user">New User</button>
   </div>
 
-  <table>
+  <table data-enhance="true" data-page-size="25">
     <thead><tr><th style="width:80px">ID</th><th>Username</th><th style="width:120px">Class</th><th style="width:180px">Department</th><th style="width:120px">Status</th><th style="width:320px">Actions</th></tr></thead>
     <tbody>
       <?php foreach ($items as $u): ?>
